@@ -10,7 +10,7 @@ class MemoryRepository {
 }
 
 class FakeChecker {
-  run() { return { promise: Promise.resolve({ checkedCases: 1, coveredCases: 1, coveragePercent: 100, overlaps: [], unreachableRuleIds: [], shadowedRuleIds: [], uncoveredExamples: [], truncated: false }), cancel() {} }; }
+  run() { return { promise: Promise.resolve({ coverage: { checkedCases: 1, totalCases: 1, coveredCases: 1, percent: 100, scope: 'complete' as const }, complete: true, overlaps: [], overlapsScope: 'complete' as const, unreachableRuleIds: [], unreachableScope: 'complete' as const, unconfirmedRuleIds: [], shadowedRuleIds: [], shadowedScope: 'complete' as const, shadowedCandidateIds: [], uncoveredExamples: [], uncoveredScope: 'complete' as const }), cancel() {} }; }
 }
 
 describe('feature ViewModels', () => {

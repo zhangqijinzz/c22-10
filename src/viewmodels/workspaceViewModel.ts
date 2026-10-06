@@ -130,7 +130,11 @@ export class RuleWorkspaceViewModel implements WorkspacePort {
       const analysis = await operation.promise;
       if (revision !== this.checkRevision) return;
       this.checkOperation = undefined;
-      this.publish({ ...this.state, phase: 'ready', checkStatus: 'success', analysis, notice: `检查完成：已分析 ${analysis.checkedCases.toLocaleString('zh-CN')} 个逻辑分区` });
+      const { coverage } = analysis;
+      const range = coverage.scope === 'partial'
+        ? `已分析 ${coverage.checkedCases.toLocaleString('zh-CN')} / ${coverage.totalCases === undefined ? '超过计数上限' : coverage.totalCases.toLocaleString('zh-CN')} 个逻辑分区（部分推断）`
+        : `已完整枚举 ${coverage.checkedCases.toLocaleString('zh-CN')} 个逻辑分区`;
+      this.publish({ ...this.state, phase: 'ready', checkStatus: 'success', analysis, notice: `检查完成：${range}` });
     } catch (error) {
       if (revision !== this.checkRevision) return;
       this.checkOperation = undefined;

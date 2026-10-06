@@ -245,11 +245,28 @@ button:disabled { cursor: not-allowed !important; opacity: .5; }
 .no-match-state strong { color: #6d7b75; font-size: 10px; }
 .no-match-state p { margin: 5px 0 0; font-size: 8px; }
 
-.validation-banner, .error-banner, .truncated-banner { display: flex; align-items: center; gap: 9px; margin: 0 0 11px; padding: 9px 11px; border: 1px solid #efdfc7; border-radius: 6px; background: #fffaf2; color: #9b7a4d; font-size: 9px; }
+.validation-banner, .error-banner { display: flex; align-items: center; gap: 9px; margin: 0 0 11px; padding: 9px 11px; border: 1px solid #efdfc7; border-radius: 6px; background: #fffaf2; color: #9b7a4d; font-size: 9px; }
 .validation-banner strong { color: #8f6c3f; font-size: 9px; }
 .validation-banner span { flex: 1; }
 .error-banner { border-color: #efd7d3; background: #fff7f5; color: #ab665d; }
-.truncated-banner { border-color: #dce5ee; background: #f6f9fc; color: #6b8198; }
+.scope-banner { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 11px; padding: 10px 12px; border-radius: 7px; font-size: 9px; }
+.scope-banner-icon { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 24px; border-radius: 7px; font-size: 13px; }
+.scope-banner > div { flex: 1; min-width: 0; }
+.scope-banner strong { display: block; font-size: 9px; }
+.scope-banner p { margin: 3px 0 0; font-size: 8px; line-height: 1.55; }
+.scope-complete-banner { border: 1px solid #cfe4d5; background: #f4faf5; color: #4d7760; }
+.scope-complete-banner .scope-banner-icon { background: #e3f2e7; color: #4e9169; }
+.scope-complete-banner strong { color: #3c6a50; }
+.scope-partial-banner { border: 1px solid #d2dff0; background: #f4f8fd; color: #54708d; }
+.scope-partial-banner .scope-banner-icon { background: #e2ecf8; color: #5b7fab; }
+.scope-partial-banner strong { color: #3f5d7c; }
+.scope-progress { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 3px; background: #e3ebf4; }
+.scope-progress span { display: block; height: 100%; border-radius: 3px; background: #7ea3cc; }
+.scope-tag { flex: 0 0 auto; margin-left: 6px; padding: 2px 5px; border-radius: 4px; font-size: 6px; font-style: normal; white-space: nowrap; }
+.scope-complete { color: #4f8766; background: #e6f3ea; }
+.scope-partial { color: #5d7da3; background: #e6eef8; }
+.analysis-heading-side { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.metric-scope { margin-left: 5px; padding: 1px 4px; border-radius: 3px; background: #e6eef8; color: #5d7da3; font-style: normal; font-size: 6px; }
 .loading-analysis { display: flex; align-items: center; gap: 11px; min-height: 61px; margin-bottom: 12px; padding: 11px 14px; box-shadow: none; }
 .loading-analysis strong { display: block; color: #52645d; font-size: 9px; }
 .loading-analysis p { margin: 4px 0 0; color: #99a6a0; font-size: 8px; }
@@ -297,6 +314,18 @@ button:disabled { cursor: not-allowed !important; opacity: .5; }
 .uncovered-row > div > strong { color: #6a7167; font-size: 7px; }
 .success-empty { display: flex; align-items: center; gap: 7px; min-height: 59px; color: #90a199; font-size: 8px; }
 .success-empty span { width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; background: #eff7f0; color: #6aa07d; font-size: 9px; }
+.success-empty-muted span { background: #edf2f8; color: #7d97b6; }
+.pending-empty { display: flex; align-items: flex-start; gap: 8px; padding: 8px 2px; color: #7e8f87; font-size: 8px; }
+.pending-empty > span { width: 17px; height: 17px; display: grid; place-items: center; flex: 0 0 17px; border-radius: 50%; background: #eef3f8; color: #7d97b6; font-size: 9px; }
+.pending-empty strong { display: block; color: #5f7269; font-size: 8px; }
+.pending-empty p { margin: 3px 0 0; color: #93a2b0; font-size: 7px; line-height: 1.5; }
+.unconfirmed-block { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e4eae5; }
+.unconfirmed-heading { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.unconfirmed-heading > span { color: #7d97b6; font-size: 10px; }
+.unconfirmed-heading strong { color: #56708d; font-size: 7px; }
+.unconfirmed-heading em { color: #9aa8b5; font-size: 6px; font-style: normal; }
+.pending-rule > span { color: #93a9c2; }
+.pending-rule i { color: #8fa6bf; }
 .compact-findings { display: grid; }
 .compact-rule { display: flex; align-items: center; gap: 7px; min-height: 31px; padding: 5px 2px; border: 0; border-bottom: 1px solid #f1f4f2; background: transparent; text-align: left; cursor: pointer; }
 .compact-rule:last-child { border-bottom: 0; }
