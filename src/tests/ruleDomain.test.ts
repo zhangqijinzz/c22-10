@@ -46,12 +46,57 @@ describe('rule consistency analysis', () => {
       makeRule('no-overlap', { kind: 'group', operator: 'and', conditions: [{ kind: 'predicate', fieldId: 'amount', operator: 'lt', value: 250 }] }, 1, 'separate'),
     ];
     const analysis = analyzeRules(project(rules));
+    expect(analysis.complete).toBe(true);
+    expect(analysis.totalCases).toBe(analysis.checkedCases);
+    expect(analysis.undeterminedRuleIds).toEqual([]);
     expect(analysis.overlaps.some((overlap) => overlap.ruleAId === 'partial' && overlap.ruleBId === 'conflict' && overlap.conflict)).toBe(true);
     expect(analysis.overlaps.some((overlap) => overlap.ruleAId === 'base' && overlap.ruleBId === 'no-overlap')).toBe(false);
-    expect(analysis.unreachableRuleIds).toContain('impossible');
-    expect(analysis.shadowedRuleIds).toContain('hidden');
+    expect(analysis.verdicts?.unreachableRuleIds).toContain('impossible');
+    expect(analysis.verdicts?.shadowedRuleIds).toContain('hidden');
+    expect(analysis.verdicts?.fullyCovered).toBe(false);
+    expect(analysis.verdicts?.overlapFree).toBe(false);
+    expect(analysis.reachableRuleIds).toEqual(expect.arrayContaining(['base', 'partial', 'conflict', 'no-overlap']));
     expect(analysis.uncoveredExamples.length).toBeGreaterThan(0);
     expect(analysis.checkedCases).toBeGreaterThan(0);
+  });
+
+  it('reports full-space verdicts only when every combination was visited', () => {
+    const rules = [
+      makeRule('on', { kind: 'group', operator: 'and', conditions: [{ kind: 'predicate', fieldId: 'active', operator: 'isTrue', value: true }] }),
+      makeRule('off', { kind: 'group', operator: 'and', conditions: [{ kind: 'predicate', fieldId: 'active', operator: 'isFalse', value: false }] }),
+    ];
+    const analysis = analyzeRules(project(rules, [active]));
+    expect(analysis.complete).toBe(true);
+    expect(analysis.verdicts).toEqual({ unreachableRuleIds: [], shadowedRuleIds: [], fullyCovered: true, overlapFree: true });
+    expect(analysis.coveragePercent).toBe(100);
+  });
+
+  it('withholds unreachable and shadowed verdicts when the input space is truncated', () => {
+    const values = Array.from({ length: 50 }, (_, index) => `v${String(index).padStart(2, '0')}`);
+    const fields: RuleField[] = [
+      { id: 'first', name: '第一维', type: 'enum', enumValues: values },
+      { id: 'second', name: '第二维', type: 'enum', enumValues: values },
+      { id: 'third', name: '第三维', type: 'enum', enumValues: values },
+    ];
+    const matchFirst = (value: string): BusinessRule['conditions'] => ({ kind: 'group', operator: 'and', conditions: [{ kind: 'predicate', fieldId: 'first', operator: 'eq', value }] });
+    const rules = [
+      makeRule('early', matchFirst('v00'), 10, 'visited region'),
+      makeRule('late', matchFirst('v49'), 10, 'beyond the truncation cut'),
+    ];
+    const analysis = analyzeRules(project(rules, fields));
+    expect(analysis.complete).toBe(false);
+    expect(analysis.totalCases).toBe(125_000);
+    expect(analysis.checkedCases).toBeLessThan(analysis.totalCases);
+    // 未走完的分区不参与不可达判断：不出具任何全空间结论
+    expect(analysis.verdicts).toBeNull();
+    // 命中输入落在未分析分区的规则只能标记为待确认，而不是被报成不可达
+    expect(analysis.reachableRuleIds).toContain('early');
+    expect(analysis.reachableRuleIds).not.toContain('late');
+    expect(analysis.undeterminedRuleIds).toContain('late');
+    expect(analysis.undeterminedRuleIds).not.toContain('early');
+    // 已确认的未覆盖样例仍然报告，但覆盖率只描述已分析分区
+    expect(analysis.uncoveredExamples.length).toBeGreaterThan(0);
+    expect(analysis.coveragePercent).toBeLessThan(100);
   });
 
   it('evaluates OR groups and validates missing sample inputs precisely', () => {

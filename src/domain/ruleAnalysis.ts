@@ -1,4 +1,5 @@
 import type {
+  AnalysisVerdicts,
   MatchWitness,
   RuleAnalysis,
   RuleCondition,
@@ -11,9 +12,11 @@ import { matchesRule } from './conditionEvaluator';
 
 const MAX_CASES = 120_000;
 const MAX_EXAMPLES = 4;
+const CASE_COUNT_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export function analyzeRules(project: RuleProject): RuleAnalysis {
   const candidates = project.fields.map((field) => valuesForField(field, project));
+  const totalCases = estimateTotalCases(candidates);
   const overlaps = new Map<string, RuleOverlap>();
   const seen = new Set<string>();
   const visible = new Set<string>();
@@ -67,19 +70,41 @@ export function analyzeRules(project: RuleProject): RuleAnalysis {
   };
 
   visit(0, {});
-  const unreachableRuleIds = project.rules.filter((rule) => !seen.has(rule.id)).map((rule) => rule.id);
-  const shadowedRuleIds = project.rules.filter((rule) => seen.has(rule.id) && !visible.has(rule.id)).map((rule) => rule.id);
+  const complete = !truncated;
+  const reachableRuleIds = project.rules.filter((rule) => seen.has(rule.id)).map((rule) => rule.id);
+  // 未走完的分区不参与不可达与遮蔽判断：截断时这些结论一律不出具，
+  // 未确认命中的规则只能标记为“待确认”，而不是被报成不可达。
+  const undeterminedRuleIds = complete ? [] : project.rules.filter((rule) => !seen.has(rule.id)).map((rule) => rule.id);
+  const verdicts: AnalysisVerdicts | null = complete
+    ? {
+        unreachableRuleIds: project.rules.filter((rule) => !seen.has(rule.id)).map((rule) => rule.id),
+        shadowedRuleIds: project.rules.filter((rule) => seen.has(rule.id) && !visible.has(rule.id)).map((rule) => rule.id),
+        fullyCovered: coveredCases === checkedCases,
+        overlapFree: overlaps.size === 0,
+      }
+    : null;
 
   return {
     checkedCases,
+    totalCases,
+    complete,
     coveredCases,
     coveragePercent: checkedCases ? Math.round((coveredCases / checkedCases) * 100) : 0,
     overlaps: [...overlaps.values()],
-    unreachableRuleIds,
-    shadowedRuleIds,
+    reachableRuleIds,
+    undeterminedRuleIds,
     uncoveredExamples,
-    truncated,
+    verdicts,
   };
+}
+
+function estimateTotalCases(candidates: ScalarCandidate[][]): number {
+  let total = 1;
+  for (const values of candidates) {
+    const count = Math.max(values.length, 1);
+    total = total > CASE_COUNT_LIMIT / count ? CASE_COUNT_LIMIT : total * count;
+  }
+  return total;
 }
 
 type ScalarCandidate = string | number | boolean;

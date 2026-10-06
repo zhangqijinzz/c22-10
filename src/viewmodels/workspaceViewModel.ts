@@ -35,6 +35,13 @@ type Listener = () => void;
 type WorkspaceRepository = Pick<RuleRepository, 'load' | 'save'>;
 type Checker = Pick<RuleCheckService, 'run'>;
 
+function checkSummary(analysis: RuleAnalysis): string {
+  const checked = analysis.checkedCases.toLocaleString('zh-CN');
+  if (analysis.complete) return `检查完成：已完整分析 ${checked} 个逻辑分区，结论覆盖整个输入空间`;
+  const total = analysis.totalCases.toLocaleString('zh-CN');
+  return `部分检查完成：已分析 ${checked} / ${total} 个逻辑分区；不可达、遮蔽与整体覆盖需完整检查后判定`;
+}
+
 export class RuleWorkspaceViewModel implements WorkspacePort {
   private state: WorkspaceState = {
     phase: 'loading', persistence: 'idle', workspace: null, project: null,
@@ -130,7 +137,7 @@ export class RuleWorkspaceViewModel implements WorkspacePort {
       const analysis = await operation.promise;
       if (revision !== this.checkRevision) return;
       this.checkOperation = undefined;
-      this.publish({ ...this.state, phase: 'ready', checkStatus: 'success', analysis, notice: `检查完成：已分析 ${analysis.checkedCases.toLocaleString('zh-CN')} 个逻辑分区` });
+      this.publish({ ...this.state, phase: 'ready', checkStatus: 'success', analysis, notice: checkSummary(analysis) });
     } catch (error) {
       if (revision !== this.checkRevision) return;
       this.checkOperation = undefined;

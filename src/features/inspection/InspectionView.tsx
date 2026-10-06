@@ -33,31 +33,68 @@ export function InspectionView({ state, viewModel, onOpenRule }: InspectionViewP
 interface AnalysisPanelProps { analysis: RuleAnalysis; project: RuleProject; byId: Map<string, BusinessRule>; onOpenRule: (ruleId: string) => void }
 
 function AnalysisPanel({ analysis, project, byId, onOpenRule }: AnalysisPanelProps) {
+  const { complete, verdicts } = analysis;
   const conflictCount = analysis.overlaps.filter((overlap) => overlap.conflict).length;
   const overlapCount = analysis.overlaps.length;
-  const coveredRules = Math.max(0, project.rules.length - analysis.unreachableRuleIds.length);
+  const reachableCount = analysis.reachableRuleIds.length;
+  const checkedLabel = formatCount(analysis.checkedCases);
+  const totalLabel = formatCount(analysis.totalCases);
+  const checkedPercent = checkedPercentLabel(analysis);
   return <>
     <div className="analysis-summary">
-      <MetricCard label="输入空间覆盖" value={`${analysis.coveragePercent}%`} detail={`${analysis.coveredCases} / ${analysis.checkedCases} 个代表分区`} icon="◌" tone={analysis.uncoveredExamples.length ? 'amber' : 'green'} />
-      <MetricCard label="规则关系" value={`${overlapCount}`} detail={`${conflictCount} 个同优先级结果冲突`} icon="⇄" tone={conflictCount ? 'red' : 'blue'} />
-      <MetricCard label="可命中规则" value={`${coveredRules} / ${project.rules.length}`} detail={`${analysis.unreachableRuleIds.length} 条不可达 · ${analysis.shadowedRuleIds.length} 条被遮蔽`} icon="⌁" tone={analysis.unreachableRuleIds.length ? 'amber' : 'green'} />
+      <MetricCard label={complete ? '输入空间覆盖' : '已分析分区覆盖'} value={`${analysis.coveragePercent}%`} detail={complete ? `${formatCount(analysis.coveredCases)} / ${checkedLabel} 个代表分区` : `已分析 ${checkedLabel} / ${totalLabel} 个组合（${checkedPercent}）`} icon="◌" tone={analysis.uncoveredExamples.length ? 'amber' : complete ? 'green' : 'blue'} />
+      <MetricCard label="规则关系" value={`${overlapCount}`} detail={complete ? `${conflictCount} 个同优先级结果冲突` : `已分析分区内 · ${conflictCount} 个冲突`} icon="⇄" tone={conflictCount ? 'red' : 'blue'} />
+      <MetricCard label="可命中规则" value={complete ? `${reachableCount} / ${project.rules.length}` : `≥ ${reachableCount} / ${project.rules.length}`} detail={verdicts ? `${verdicts.unreachableRuleIds.length} 条不可达 · ${verdicts.shadowedRuleIds.length} 条被遮蔽` : `${analysis.undeterminedRuleIds.length} 条待完整检查`} icon="⌁" tone={verdicts ? (verdicts.unreachableRuleIds.length ? 'amber' : 'green') : 'blue'} />
     </div>
-    {analysis.truncated && <div className="truncated-banner">输入空间超过单次检查上限，以下数据来自已分析分区；请减少字段组合后再次检查。</div>}
+    {complete
+      ? <div className="complete-banner"><strong>完整检查</strong><span>已枚举全部 {totalLabel} 个输入组合，以下结论覆盖整个输入空间。</span></div>
+      : <div className="truncated-banner"><strong>部分检查</strong><span>输入空间共 {totalLabel} 个组合，本次仅分析 {checkedLabel} 个（{checkedPercent}）。不可达、遮蔽与整体覆盖需完整检查后判定，请按各卡片标注的可信范围解读。</span></div>}
     <div className="analysis-grid">
-      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon conflict-icon">⇄</span><div><h2>重叠与冲突</h2><p>同一输入命中多条规则；同优先级且结果不同会产生冲突。</p></div><b>{overlapCount}</b></header>
-        {overlapCount ? <div className="finding-list">{analysis.overlaps.slice(0, 6).map((overlap) => <div className="finding-row" key={`${overlap.ruleAId}-${overlap.ruleBId}`}><div className="finding-copy"><div><button className="inline-rule-link" onClick={() => onOpenRule(overlap.ruleAId)}>{byId.get(overlap.ruleAId)?.name ?? overlap.ruleAId}</button><span className="finding-join">↔</span><button className="inline-rule-link" onClick={() => onOpenRule(overlap.ruleBId)}>{byId.get(overlap.ruleBId)?.name ?? overlap.ruleBId}</button></div><span>{formatWitness(overlap.witness, project)}</span></div><span className={overlap.conflict ? 'severity-tag severity-danger' : 'severity-tag severity-warn'}>{overlap.conflict ? '结果冲突' : '条件重叠'}</span></div>)}</div> : <SuccessEmpty text="没有发现规则重叠" />}
+      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon conflict-icon">⇄</span><div><h2>重叠与冲突</h2><p>同一输入命中多条规则；同优先级且结果不同会产生冲突。</p></div><ScopeTag complete={complete} /><b>{overlapCount}</b></header>
+        {overlapCount ? <div className="finding-list">{analysis.overlaps.slice(0, 6).map((overlap) => <div className="finding-row" key={`${overlap.ruleAId}-${overlap.ruleBId}`}><div className="finding-copy"><div><button className="inline-rule-link" onClick={() => onOpenRule(overlap.ruleAId)}>{byId.get(overlap.ruleAId)?.name ?? overlap.ruleAId}</button><span className="finding-join">↔</span><button className="inline-rule-link" onClick={() => onOpenRule(overlap.ruleBId)}>{byId.get(overlap.ruleBId)?.name ?? overlap.ruleBId}</button></div><span>{formatWitness(overlap.witness, project)}</span></div><span className={overlap.conflict ? 'severity-tag severity-danger' : 'severity-tag severity-warn'}>{overlap.conflict ? '结果冲突' : '条件重叠'}</span></div>)}</div> : complete ? <SuccessEmpty text="没有发现规则重叠" /> : <PartialEmpty text="已分析分区内未发现重叠" />}
+        {!complete && overlapCount > 0 && <p className="partial-note">以上为已确认重叠；未检查分区可能还有更多。</p>}
       </section>
-      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon coverage-icon">◔</span><div><h2>未覆盖输入</h2><p>没有任何规则命中的合法输入组合。</p></div><b>{analysis.uncoveredExamples.length ? '有' : '无'}</b></header>
-        {analysis.uncoveredExamples.length ? <div className="finding-list">{analysis.uncoveredExamples.map((example, index) => <div className="uncovered-row" key={index}><span className="uncovered-index">0{index + 1}</span><div><strong>未命中输入组合</strong><span>{formatWitness(example, project)}</span></div><span className="severity-tag severity-warn">未覆盖</span></div>)}</div> : <SuccessEmpty text="输入空间已完整覆盖" />}
+      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon coverage-icon">◔</span><div><h2>未覆盖输入</h2><p>没有任何规则命中的合法输入组合。</p></div><ScopeTag complete={complete} /><b>{analysis.uncoveredExamples.length ? '有' : complete ? '无' : '—'}</b></header>
+        {analysis.uncoveredExamples.length ? <div className="finding-list">{analysis.uncoveredExamples.map((example, index) => <div className="uncovered-row" key={index}><span className="uncovered-index">0{index + 1}</span><div><strong>未命中输入组合</strong><span>{formatWitness(example, project)}</span></div><span className="severity-tag severity-warn">未覆盖</span></div>)}</div> : complete ? <SuccessEmpty text="输入空间已完整覆盖" /> : <PartialEmpty text="已分析分区内未发现未覆盖输入" />}
+        {!complete && analysis.uncoveredExamples.length > 0 && <p className="partial-note">以上为已确认未覆盖样例；未检查分区可能还有更多。</p>}
       </section>
-      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon unreachable-icon">⊘</span><div><h2>不可达规则</h2><p>在字段合法取值范围内，条件组合从未成立。</p></div><b>{analysis.unreachableRuleIds.length}</b></header>
-        {analysis.unreachableRuleIds.length ? <div className="compact-findings">{analysis.unreachableRuleIds.map((id) => <button className="compact-rule" key={id} onClick={() => onOpenRule(id)}><span>⌁</span><strong>{byId.get(id)?.name ?? id}</strong><i>编辑条件 →</i></button>)}</div> : <SuccessEmpty text="所有规则都存在可命中输入" />}
+      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon unreachable-icon">⊘</span><div><h2>不可达规则</h2><p>在字段合法取值范围内，条件组合从未成立。</p></div><ScopeTag complete={complete} /><b>{verdicts ? verdicts.unreachableRuleIds.length : '—'}</b></header>
+        {verdicts
+          ? verdicts.unreachableRuleIds.length ? <div className="compact-findings">{verdicts.unreachableRuleIds.map((id) => <button className="compact-rule" key={id} onClick={() => onOpenRule(id)}><span>⌁</span><strong>{byId.get(id)?.name ?? id}</strong><i>编辑条件 →</i></button>)}</div> : <SuccessEmpty text="所有规则都存在可命中输入" />
+          : analysis.undeterminedRuleIds.length
+            ? <PendingRules ruleIds={analysis.undeterminedRuleIds} byId={byId} onOpenRule={onOpenRule} note="以下规则在已分析分区内未命中，需完整检查后才能判定是否不可达：" />
+            : <SuccessEmpty text="全部规则均已在已分析分区内命中，不存在不可达规则" />}
       </section>
-      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon hidden-icon">◉</span><div><h2>被完全遮蔽</h2><p>存在命中输入，但优先级路径上总有更早规则先命中。</p></div><b>{analysis.shadowedRuleIds.length}</b></header>
-        {analysis.shadowedRuleIds.length ? <div className="compact-findings">{analysis.shadowedRuleIds.map((id) => <button className="compact-rule" key={id} onClick={() => onOpenRule(id)}><span>◉</span><strong>{byId.get(id)?.name ?? id}</strong><i>调整优先级 →</i></button>)}</div> : <SuccessEmpty text="没有被完全遮蔽的规则" />}
+      <section className="analysis-card card-surface"><header className="analysis-card-heading"><span className="analysis-icon hidden-icon">◉</span><div><h2>被完全遮蔽</h2><p>存在命中输入，但优先级路径上总有更早规则先命中。</p></div><ScopeTag complete={complete} /><b>{verdicts ? verdicts.shadowedRuleIds.length : '—'}</b></header>
+        {verdicts
+          ? verdicts.shadowedRuleIds.length ? <div className="compact-findings">{verdicts.shadowedRuleIds.map((id) => <button className="compact-rule" key={id} onClick={() => onOpenRule(id)}><span>◉</span><strong>{byId.get(id)?.name ?? id}</strong><i>调整优先级 →</i></button>)}</div> : <SuccessEmpty text="没有被完全遮蔽的规则" />
+          : <PartialEmpty text="遮蔽判定依赖完整优先级路径，需完整检查后出具" />}
       </section>
     </div>
   </>;
+}
+
+function ScopeTag({ complete }: { complete: boolean }) {
+  return <span className={`scope-tag ${complete ? 'scope-full' : 'scope-partial'}`}>{complete ? '完整结论' : '部分推断'}</span>;
+}
+
+function PendingRules({ ruleIds, byId, onOpenRule, note }: { ruleIds: string[]; byId: Map<string, BusinessRule>; onOpenRule: (ruleId: string) => void; note: string }) {
+  return <div className="pending-rules"><p className="pending-note">{note}</p><div className="compact-findings">{ruleIds.map((id) => <button className="compact-rule pending-rule" key={id} onClick={() => onOpenRule(id)}><span>◔</span><strong>{byId.get(id)?.name ?? id}</strong><i>待确认</i></button>)}</div></div>;
+}
+
+function PartialEmpty({ text }: { text: string }) { return <div className="partial-empty"><span>◔</span>{text}</div>; }
+
+function formatCount(value: number): string {
+  return value >= 100_000_000
+    ? new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+    : value.toLocaleString('zh-CN');
+}
+
+function checkedPercentLabel(analysis: RuleAnalysis): string {
+  if (!analysis.totalCases || analysis.checkedCases >= analysis.totalCases) return '100%';
+  const percent = (analysis.checkedCases / analysis.totalCases) * 100;
+  if (percent < 0.1) return '<0.1%';
+  return `${percent >= 10 ? Math.round(percent) : percent.toFixed(1)}%`;
 }
 
 function MetricCard({ label, value, detail, icon, tone }: { label: string; value: string; detail: string; icon: string; tone: string }) {
